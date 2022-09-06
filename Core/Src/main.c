@@ -120,21 +120,40 @@ int main(void)
 			  if ( strlen ( (char *) rx_buff ) > 12 ) // 12 to odpowiednik $PW 3.30300
 			  {
 				  uint8_t i ;
-				  for ( i = 4 ; i < 11 ; i++ )
+				  for ( i = 4 ; i < 8 ; i++ ) // 8 to odpowiednik $PW 3.31
 				  {
-					  if ( rx_buff[i] >= 46 && rx_buff[i] <= 57 )
+					  if ( rx_buff[i] == 46 || ( rx_buff[i] >= 48 && rx_buff[i] <= 57 ) )
 						  tx_buff[i-4] = rx_buff[i] ;
+					  else if ( rx_buff[i] == 42 )
+						  break ;
 					  else
 					  {
 						  tx_buff[0] = 0 ;
 						  break ;
 					  }
 				  }
+				  tx_buff[4] = 59 ; // ";"
+				  tx_buff[5] = 0 ; // ";"
 			  }
 		  }
 		  if ( strncmp ( (const char *) rx_buff  , gn , 4 ) == 0)
 		  {
-			  __NOP () ;
+			  uint8_t i = 4 ;
+			  while ( rx_buff[i] != 42 )
+			  {
+				  if ( rx_buff[i] == 44 || rx_buff[i] == 46 || ( rx_buff[i] >= 48 && rx_buff[i] <= 57 ) )
+				  {
+					  tx_buff[i-4] = rx_buff[i] ;
+					  i++ ;
+				  }
+				  else
+				  {
+					  i++;
+					  break ;
+				  }
+			  }
+			  tx_buff[i-4] = 59 ;
+			  tx_buff[i-4+1] = 0 ;
 		  }
 		  HAL_UART_Transmit ( &huart2 , (const uint8_t *) tx_buff , strlen ( (char *) tx_buff ) , UART_TX_TIMEOUT ) ;
 		  received = 0 ;
