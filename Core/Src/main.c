@@ -49,10 +49,11 @@ DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
 char                hello[]         		= "Hello! Tuto_String_001_G071RB\n" ;
+char                eol[]         			= "\n" ;
 uint8_t             rx_buff[RX_BUFF_SIZE] ;
 uint8_t             tx_buff[RX_BUFF_SIZE] ;
-char				pw_buff[PW_BUFF_SIZE] ;
-char				gn_buff[GN_BUFF_SIZE] ;
+char				pw_buff_ascii[PW_BUFF_SIZE] ;
+char				gn_buff_ascii[GN_BUFF_SIZE] ;
 uint8_t				received = 0 ;
 
 const char 			pw[5] = "$PW ";
@@ -65,7 +66,8 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void get_pw_ascii ( const char* s , char* d ) ;
+void get_gn_ascii ( const char* s , char* d ) ;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -118,49 +120,13 @@ int main(void)
 	  if ( received == 1 )
 	  {
 		  if ( strncmp ( (const char *) rx_buff  , pw , 4 ) == 0)
-		  {
-			  if ( strlen ( (char *) rx_buff ) > 12 ) // 12 to odpowiednik $PW 3.30300
-			  {
-				  uint8_t i ;
-				  for ( i = 4 ; i < 8 ; i++ ) // 8 to odpowiednik $PW 3.31
-				  {
-					  if ( rx_buff[i] == 46 || ( rx_buff[i] >= 48 && rx_buff[i] <= 57 ) )
-						  pw_buff[i-4] = rx_buff[i] ;
-					  else if ( rx_buff[i] == 42 )
-						  break ;
-					  else
-					  {
-						  pw_buff[0] = 0 ;
-						  break ;
-					  }
-				  }
-				  pw_buff[4] = 59 ; // ";"
-				  pw_buff[5] = 0 ; // ";"
-			  }
-		  }
+			  get_pw_ascii ( (const char *) rx_buff , pw_buff_ascii) ;
 		  if ( strncmp ( (const char *) rx_buff  , gn , 4 ) == 0)
-		  {
-			  uint8_t i = 4 ;
-			  while ( rx_buff[i] != 42 )
-			  {
-				  if ( rx_buff[i] == 44 || rx_buff[i] == 46 || ( rx_buff[i] >= 48 && rx_buff[i] <= 57 ) )
-				  {
-					  gn_buff[i-4] = rx_buff[i] ;
-					  i++ ;
-				  }
-				  else
-				  {
-					  i++;
-					  break ;
-				  }
-			  }
-			  gn_buff[i-4] = 59 ;
-			  gn_buff[i-4+1] = 0 ;
-		  }
-		  HAL_UART_Transmit ( &huart2 , (const uint8_t *) pw_buff , strlen ( (char *) pw_buff ) , UART_TX_TIMEOUT ) ;
-		  HAL_UART_Transmit ( &huart2 , "\n" , 1 , UART_TX_TIMEOUT ) ;
-		  HAL_UART_Transmit ( &huart2 , (const uint8_t *) gn_buff , strlen ( (char *) gn_buff ) , UART_TX_TIMEOUT ) ;
-		  HAL_UART_Transmit ( &huart2 , "\n" , 1 , UART_TX_TIMEOUT ) ;
+			  get_gn_ascii ( (const char *) rx_buff , gn_buff_ascii) ;
+		  HAL_UART_Transmit ( &huart2 , (const uint8_t *) pw_buff_ascii , strlen ( (char *) pw_buff_ascii ) , UART_TX_TIMEOUT ) ;
+		  HAL_UART_Transmit ( &huart2 , (const uint8_t *) eol , strlen ( eol ) , UART_TX_TIMEOUT ) ;
+		  HAL_UART_Transmit ( &huart2 , (const uint8_t *) gn_buff_ascii , strlen ( (char *) gn_buff_ascii ) , UART_TX_TIMEOUT ) ;
+		  HAL_UART_Transmit ( &huart2 , (const uint8_t *) eol , strlen ( eol ) , UART_TX_TIMEOUT ) ;
 		  received = 0 ;
 		  rx_buff[0] = 0 ;
 	  }
@@ -309,14 +275,36 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void get_pw_ascii ( const char* s , char* d )
+{
+	char comm[6] ;
+	if ( strlen ( (char *) s ) > 12 ) // 12 to odpowiednik $PW 3.30300
+	{
+		sscanf ( s , "%[$A-Z] %4[0-9.]," , comm , d ) ;
+		d[4] = 59 ; // ";"
+		d[5] = 0 ; // ";"
+	}
+}
+void get_gn_ascii ( const char* s , char* d )
+{
+	char e[2] = ";" ;
+	char comm[6] ;
+	if ( strlen ( (char *) s ) > 12 )
+	{
+		sscanf ( s , "%[$A-Z] %[0-9.,]*" , comm , d ) ;
+		strcat ( d , e ) ;
+	}
+}
+
 void HAL_GPIO_EXTI_Falling_Callback ( uint16_t GPIO_Pin )
 {
-	strcat ( pw_buff , gn_buff ) ;
-	HAL_UART_Transmit ( &huart2 , (const uint8_t *) pw_buff , strlen ( (char *) pw_buff ) , UART_TX_TIMEOUT ) ;
-	HAL_UART_Transmit ( &huart2 , "\n" , 1 , UART_TX_TIMEOUT ) ;
-	pw_buff[0] = 0 ;
-	gn_buff [0] = 0 ;
+	strcat ( pw_buff_ascii , gn_buff_ascii ) ;
+	HAL_UART_Transmit ( &huart2 , (const uint8_t *) pw_buff_ascii , strlen ( (char *) pw_buff_ascii ) , UART_TX_TIMEOUT ) ;
+	HAL_UART_Transmit ( &huart2 , (const uint8_t *) eol , strlen ( eol ) , UART_TX_TIMEOUT ) ;
+	pw_buff_ascii[0] = 0 ;
+	gn_buff_ascii [0] = 0 ;
 }
+
 void HAL_UARTEx_RxEventCallback ( UART_HandleTypeDef *huart , uint16_t Size )
 {
     if ( huart->Instance == USART2 )
